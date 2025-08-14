@@ -285,7 +285,7 @@ function App() {
                   {step < 4 && (
                     <div
                       className={`w-16 h-1 mx-2 ${
-                        step < currentStep ? 'bg-indigo-600' : 'bg-gray-200'
+                        step <= currentStep ? 'bg-indigo-600' : 'bg-gray-200'
                       }`}
                     />
                   )}
