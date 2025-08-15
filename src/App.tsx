@@ -350,7 +350,7 @@ function App() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-800 mb-4">Roblox 玩家驗證系統</h1>
+            <h1 className="text-4xl font-bold text-gray-800 mb-4">MT戰隊自動驗證系統</h1>
             <p className="text-lg text-gray-600">自動化驗證流程 - 擊殺數需達3000以上</p>
           </div>
 
