@@ -735,13 +735,13 @@ function App() {
                       <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
                       <h3 className="text-xl font-semibold text-red-800 mb-2">驗證未通過</h3>
                       <p className="text-red-700 mb-4">
-                        請檢查上述失敗項目，修正後重新驗證，若一直失敗可改為手動驗證。
+                        請檢查上述失敗項目，修正後重新驗證，或改為手動驗證。
                       </p>
                     </div>
                     
                     {/* 顯示上傳的截圖供手動驗證 */}
                     <div className="mt-6">
-                      <h4 className="text-lg font-medium text-gray-800 mb-4 text-center">提交的截圖（供手動驗證）</h4>
+                      <h4 className="text-lg font-medium text-gray-800 mb-4 text-center">若圖片沒問題，可直接複製給客服人員手動驗證</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* 遊戲截圖 */}
                         {data.gameScreenshot && (
