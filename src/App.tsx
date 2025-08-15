@@ -738,6 +738,49 @@ function App() {
                         請檢查上述失敗項目，修正後重新驗證，若一直失敗可改為手動驗證。
                       </p>
                     </div>
+                    
+                    {/* 顯示上傳的截圖供手動驗證 */}
+                    <div className="mt-6">
+                      <h4 className="text-lg font-medium text-gray-800 mb-4 text-center">提交的截圖（供手動驗證）</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* 遊戲截圖 */}
+                        {data.gameScreenshot && (
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h5 className="font-medium text-gray-800 mb-3 text-center">遊戲擊殺截圖</h5>
+                            <div className="border rounded-lg overflow-hidden">
+                              <img 
+                                src={URL.createObjectURL(data.gameScreenshot)} 
+                                alt="遊戲擊殺截圖" 
+                                className="w-full h-auto max-h-64 object-contain bg-gray-50"
+                              />
+                            </div>
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p>玩家名稱: {data.playerName}</p>
+                              <p>檢測擊殺數: {result.step2KillCount?.toLocaleString() || '無法識別'}</p>
+                              <p>名稱匹配: {result.step2PlayerFound ? '✓' : '✗'}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Roblox 截圖 */}
+                        {data.robloxScreenshot && (
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h5 className="font-medium text-gray-800 mb-3 text-center">Roblox 主頁截圖</h5>
+                            <div className="border rounded-lg overflow-hidden">
+                              <img 
+                                src={URL.createObjectURL(data.robloxScreenshot)} 
+                                alt="Roblox 主頁截圖" 
+                                className="w-full h-auto max-h-64 object-contain bg-gray-50"
+                              />
+                            </div>
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p>預期用戶名: {data.playerName}</p>
+                              <p>用戶名匹配: {result.step3NameMatch ? '✓' : '✗'}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
