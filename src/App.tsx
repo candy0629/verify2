@@ -483,7 +483,7 @@ function App() {
                           <p className="font-medium mb-2">參考示例：</p>
                           <div className="bg-gray-800 text-white p-3 rounded text-xs font-mono">
                             <div className="flex justify-between items-center">
-                              <span>Player_Name</span>
+                              <span>Aeris</span>
                               <span>998</span>
                               <span>10306</span>
                             </div>
