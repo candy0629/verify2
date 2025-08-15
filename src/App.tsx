@@ -80,7 +80,7 @@ function App() {
   const processStep2 = async (file: File): Promise<{ killCount: number; playerFound: boolean }> => {
     try {
       // 使用 Tesseract.js 進行 OCR 文字識別
-      const { data: { text } } = await Tesseract.recognize(file, 'eng', {
+      const { data: { text } } = await Tesseract.recognize(file, 'eng+chi_tra+chi_sim+jpn+kor', {
         logger: m => console.log(m) // 可選：顯示處理進度
       });
       
@@ -89,8 +89,8 @@ function App() {
       // 清理文字，移除多餘的空白和換行
       const cleanText = text.replace(/\s+/g, ' ').trim();
       
-      // 尋找玩家名稱
-      const playerFound = cleanText.toLowerCase().includes(data.playerName.toLowerCase());
+      // 改進的玩家名稱匹配邏輯
+      const playerFound = findPlayerName(cleanText, data.playerName);
       
       // 提取所有數字（3位數以上）
       const numbers = cleanText.match(/\d{3,}/g);
@@ -114,17 +114,103 @@ function App() {
     }
   };
 
+  // 新增：改進的玩家名稱匹配函數
+  const findPlayerName = (text: string, playerName: string): boolean => {
+    // 正規化函數：移除或替換可能被 OCR 誤識的字符
+    const normalizeText = (str: string): string => {
+      return str
+        // 轉為小寫
+        .toLowerCase()
+        // 移除所有空白字符
+        .replace(/\s+/g, '')
+        // 將常見的 OCR 誤識字符進行替換
+        .replace(/[|l1]/g, 'i')  // | l 1 -> i
+        .replace(/[0o]/g, 'o')   // 0 -> o
+        .replace(/[5s]/g, 's')   // 5 -> s
+        .replace(/[8b]/g, 'b')   // 8 -> b
+        .replace(/[6g]/g, 'g')   // 6 -> g
+        // 處理底線和連字符的變體
+        .replace(/[-_—–]/g, '_') // 各種連字符都轉為底線
+        // 移除標點符號（除了底線）
+        .replace(/[^\w_\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g, '');
+    };
+
+    const normalizedText = normalizeText(text);
+    const normalizedPlayerName = normalizeText(playerName);
+    
+    console.log('原始文字:', text);
+    console.log('正規化後文字:', normalizedText);
+    console.log('正規化後玩家名稱:', normalizedPlayerName);
+    
+    // 方法1: 直接包含匹配
+    if (normalizedText.includes(normalizedPlayerName)) {
+      console.log('方法1匹配成功: 直接包含');
+      return true;
+    }
+    
+    // 方法2: 模糊匹配 - 允許一些字符差異
+    const fuzzyMatch = (str1: string, str2: string, threshold: number = 0.8): boolean => {
+      if (str2.length === 0) return false;
+      
+      // 計算編輯距離
+      const matrix = Array(str1.length + 1).fill(null).map(() => Array(str2.length + 1).fill(null));
+      
+      for (let i = 0; i <= str1.length; i++) matrix[i][0] = i;
+      for (let j = 0; j <= str2.length; j++) matrix[0][j] = j;
+      
+      for (let i = 1; i <= str1.length; i++) {
+        for (let j = 1; j <= str2.length; j++) {
+          if (str1[i - 1] === str2[j - 1]) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j] + 1,     // 刪除
+              matrix[i][j - 1] + 1,     // 插入
+              matrix[i - 1][j - 1] + 1  // 替換
+            );
+          }
+        }
+      }
+      
+      const editDistance = matrix[str1.length][str2.length];
+      const similarity = 1 - editDistance / Math.max(str1.length, str2.length);
+      
+      return similarity >= threshold;
+    };
+    
+    // 在文字中尋找與玩家名稱相似的子字串
+    for (let i = 0; i <= normalizedText.length - normalizedPlayerName.length; i++) {
+      const substring = normalizedText.substring(i, i + normalizedPlayerName.length);
+      if (fuzzyMatch(substring, normalizedPlayerName, 0.75)) {
+        console.log('方法2匹配成功: 模糊匹配', substring, '<=>', normalizedPlayerName);
+        return true;
+      }
+    }
+    
+    // 方法3: 分詞匹配 - 將文字分割後逐個比對
+    const words = normalizedText.split(/[\s\-_.,;:|]+/).filter(word => word.length > 0);
+    for (const word of words) {
+      if (word === normalizedPlayerName || fuzzyMatch(word, normalizedPlayerName, 0.8)) {
+        console.log('方法3匹配成功: 分詞匹配', word, '<=>', normalizedPlayerName);
+        return true;
+      }
+    }
+    
+    console.log('所有匹配方法都失敗');
+    return false;
+  };
+
   const processStep3 = async (file: File): Promise<{ nameMatch: boolean }> => {
     try {
       // 使用 Tesseract.js 進行 OCR 文字識別
-      const { data: { text } } = await Tesseract.recognize(file, 'eng', {
+      const { data: { text } } = await Tesseract.recognize(file, 'eng+chi_tra+chi_sim+jpn+kor', {
         logger: m => console.log(m)
       });
       
       console.log('Roblox 頁面 OCR 結果:', text);
       
-      // 檢查是否包含玩家名稱
-      const nameMatch = text.toLowerCase().includes(data.playerName.toLowerCase());
+      // 使用改進的匹配邏輯
+      const nameMatch = findPlayerName(text, data.playerName);
       
       console.log('用戶名匹配結果:', nameMatch);
       
@@ -391,18 +477,19 @@ function App() {
                           <li>• 必須清楚顯示總擊殺數（需≥3000）</li>
                           <li>• 格式如：玩家名稱 - 月殺數 - 總擊殺數</li>
                           <li>• 圖片清晰易讀</li>
+                          <li>• 支援各種語言和特殊符號（如底線_）</li>
                         </ul>
                         <div className="mt-3">
                           <p className="font-medium mb-2">參考示例：</p>
                           <div className="bg-gray-800 text-white p-3 rounded text-xs font-mono">
                             <div className="flex justify-between items-center">
-                              <span>Aeris</span>
+                              <span>Player_Name</span>
                               <span>998</span>
                               <span>10306</span>
                             </div>
                           </div>
                           <p className="text-xs mt-1 text-yellow-700">
-                            ↑ 左側：玩家名稱，中間：月殺數，右側：總擊殺數（這個數字需≥3000）
+                            ↑ 左側：玩家名稱（支援底線等符號），中間：月殺數，右側：總擊殺數（需≥3000）
                           </p>
                         </div>
                       </div>
@@ -570,7 +657,7 @@ function App() {
                       )}
                       {result.step2KillCount === 0 && (
                         <p className="text-red-600 text-xs">
-                          * 無法識別擊殺數，請確保截圖清晰且數字可讀
+                          * 無法識別擊殺數，請確保截圖清晰且數字可讀，建議重新截圖
                         </p>
                       )}
                       <p className={result.step2KillCount && result.step2KillCount >= 3000 ? 'text-green-600' : 'text-red-600'}>
