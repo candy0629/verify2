@@ -786,7 +786,7 @@ function App() {
 
                 {/* 複製功能區域 */}
                 <div className="mt-6 space-y-4">
-                  <h4 className="text-lg font-medium text-gray-800 text-center">複製給管理員</h4>
+                  <h4 className="text-lg font-medium text-gray-800 text-center">複製給客服人員</h4>
                   <div className="flex justify-center">
                     <button
                       onClick={copyVerificationScreenshot}
@@ -808,7 +808,7 @@ function App() {
                     </button>
                   </div>
                   <p className="text-sm text-gray-600 text-center">
-                    💡 複製截圖後可直接貼到 Discord 給管理員查看
+                    💡 複製截圖後可直接貼到 Discord 給客服人員查看
                   </p>
                 </div>
 
