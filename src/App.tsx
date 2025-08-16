@@ -79,30 +79,61 @@ function App() {
 
   const processStep2 = async (file: File): Promise<{ killCount: number; playerFound: boolean }> => {
     try {
+      console.log('開始處理步驟2，玩家名稱:', data.playerName);
+      
       // 使用 Tesseract.js 進行 OCR 文字識別
-      const { data: { text } } = await Tesseract.recognize(file, 'eng+chi_tra+chi_sim+jpn+kor', {
-        logger: m => console.log(m), // 可選：顯示處理進度
-        tessedit_pageseg_mode: '6', // 假設單一統一文字區塊
-        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz一二三四五六七八九十百千萬億兆京垓秭穰溝澗正載極恆河沙阿僧祇那由他不可思議無量大數北極熊貓指揮官玩家名稱擊殺數月總_-.,;:|()[]{}「」『』【】〈〉《》〔〕（）［］｛｝、。，；：！？～…—–\'\'""‚„‹›«»‰‱°′″‴※§¶†‡•‰‱¤¢£¥€₹₽₩₪₫₱₡₨₦₵₴₸₼₾＄￠￡￥￦',
-        preserve_interword_spaces: '1'
-      });
-      
-      // 額外嘗試僅使用中文模型進行識別
-      const { data: { text: chineseText } } = await Tesseract.recognize(file, 'chi_tra+chi_sim', {
-        logger: m => console.log('Chinese OCR:', m),
+      const { data: { text } } = await Tesseract.recognize(file, 'chi_tra+chi_sim+eng', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            console.log(`OCR 進度: ${Math.round(m.progress * 100)}%`);
+          }
+        },
         tessedit_pageseg_mode: '6',
+        preserve_interword_spaces: '1',
+        tessedit_char_blacklist: '|`~'
+      });
+      
+      // 第二次識別：使用不同的參數
+      const { data: { text: text2 } } = await Tesseract.recognize(file, 'chi_tra+chi_sim+eng', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            console.log(`第二次 OCR 進度: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+        tessedit_pageseg_mode: '8', // 將頁面視為單一單詞
         preserve_interword_spaces: '1'
       });
       
-      // 合併兩次識別結果
-      const combinedText = text + ' ' + chineseText;
+      // 第三次識別：專門針對中文
+      const { data: { text: text3 } } = await Tesseract.recognize(file, 'chi_tra+chi_sim', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            console.log(`中文專用 OCR 進度: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+        tessedit_pageseg_mode: '13', // 原始行，將圖像視為單一文字行
+        preserve_interword_spaces: '1'
+      });
+      
+      // 合併三次識別結果
+      const combinedText = [text, text2, text3].join(' ');
       
       console.log('OCR 識別結果:', text);
-      console.log('中文 OCR 識別結果:', chineseText);
+      console.log('第二次 OCR 識別結果:', text2);
+      console.log('中文專用 OCR 識別結果:', text3);
       console.log('合併識別結果:', combinedText);
       
-      // 清理文字，移除多餘的空白和換行
-      const cleanText = combinedText.replace(/\s+/g, ' ').trim();
+      // 詳細的文字清理和分析
+      const cleanText = combinedText
+        .replace(/\r\n/g, ' ')
+        .replace(/\n/g, ' ')
+        .replace(/\r/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      console.log('清理後的文字:', cleanText);
+      console.log('文字長度:', cleanText.length);
+      console.log('包含的字符:', cleanText.split('').map(char => `${char}(${char.charCodeAt(0)})`).join(', '));
       
       // 改進的玩家名稱匹配邏輯
       const playerFound = findPlayerName(cleanText, data.playerName);
@@ -131,146 +162,115 @@ function App() {
 
   // 新增：改進的玩家名稱匹配函數
   const findPlayerName = (text: string, playerName: string): boolean => {
+    console.log('=== 開始玩家名稱匹配 ===');
+    console.log('搜尋文字:', text);
+    console.log('目標玩家名稱:', playerName);
+    console.log('玩家名稱字符分析:', playerName.split('').map(char => `${char}(${char.charCodeAt(0)})`).join(', '));
+    
     // 如果玩家名稱包含中文字符，使用不同的處理策略
     const hasChinese = /[\u4e00-\u9fff]/.test(playerName);
     const hasJapanese = /[\u3040-\u309f\u30a0-\u30ff]/.test(playerName);
     const hasKorean = /[\uac00-\ud7af]/.test(playerName);
     const isAsianLanguage = hasChinese || hasJapanese || hasKorean;
     
-    // 正規化函數：移除或替換可能被 OCR 誤識的字符
-    const normalizeText = (str: string): string => {
-      return str
-        // 只對非亞洲語言轉小寫
-        .toLowerCase()
-        // 移除所有空白字符
-        .replace(/\s+/g, '')
-        // 將常見的 OCR 誤識字符進行替換（僅對英文）
-        .replace(/[|l1]/g, 'i')  // | l 1 -> i
-        .replace(/[0o]/g, 'o')   // 0 -> o
-        .replace(/[5s]/g, 's')   // 5 -> s
-        .replace(/[8b]/g, 'b')   // 8 -> b
-        .replace(/[6g]/g, 'g')   // 6 -> g
-        // 處理底線和連字符的變體
-        .replace(/[-_—–]/g, '_') // 各種連字符都轉為底線
-        // 移除標點符號（保留中日韓文字和底線）
-        .replace(/[^\w_\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g, '');
-    };
-
-    // 針對亞洲語言的特殊正規化
-    const normalizeAsianText = (str: string): string => {
-      return str
-        // 保持原始大小寫
-        // 移除空白但保留中文字符間的結構
-        .replace(/\s+/g, '')
-        // 處理全形和半形字符
-        .replace(/[０-９]/g, (match) => String.fromCharCode(match.charCodeAt(0) - 0xFEE0))
-        .replace(/[Ａ-Ｚａ-ｚ]/g, (match) => String.fromCharCode(match.charCodeAt(0) - 0xFEE0))
-        // 處理各種連字符
-        .replace(/[－＿—–_-]/g, '_')
-        // 移除其他標點但保留中日韓文字
-        .replace(/[^\w_\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g, '');
-    };
-
-    const normalizedText = normalizeText(text);
-    const normalizedPlayerName = isAsianLanguage ? normalizeAsianText(playerName) : normalizeText(playerName);
+    console.log('語言類型 - 中文:', hasChinese, '日文:', hasJapanese, '韓文:', hasKorean, '亞洲語言:', isAsianLanguage);
     
-    // 如果是亞洲語言，也對文字使用亞洲語言正規化
-    const asianNormalizedText = isAsianLanguage ? normalizeAsianText(text) : normalizedText;
-    
-    console.log('原始文字:', text);
-    console.log('正規化後文字:', normalizedText);
-    if (isAsianLanguage) {
-      console.log('亞洲語言正規化後文字:', asianNormalizedText);
-    }
-    console.log('正規化後玩家名稱:', normalizedPlayerName);
-    console.log('是否為亞洲語言:', isAsianLanguage);
-    
-    // 方法1: 直接包含匹配
-    const textToSearch = isAsianLanguage ? asianNormalizedText : normalizedText;
-    if (textToSearch.includes(normalizedPlayerName)) {
-      console.log('方法1匹配成功: 直接包含');
+    // 方法1: 直接搜尋（最寬鬆）
+    if (text.includes(playerName)) {
+      console.log('✓ 方法1成功: 直接包含匹配');
       return true;
     }
     
-    // 針對中文的額外匹配方法
+    // 方法2: 移除空白後搜尋
+    const textNoSpaces = text.replace(/\s+/g, '');
+    const playerNameNoSpaces = playerName.replace(/\s+/g, '');
+    if (textNoSpaces.includes(playerNameNoSpaces)) {
+      console.log('✓ 方法2成功: 移除空白後匹配');
+      return true;
+    }
+    
+    // 方法3: 逐字符搜尋（針對中文）
     if (isAsianLanguage) {
-      // 嘗試不同的分割方式
-      const segments = text.split(/[\s\-_.,;:|()[\]{}「」『』【】〈〉《》〔〕（）［］｛｝、。，；：！？～…—–]+/);
-      for (const segment of segments) {
-        const normalizedSegment = normalizeAsianText(segment);
-        if (normalizedSegment === normalizedPlayerName) {
-          console.log('亞洲語言分段匹配成功:', normalizedSegment, '<=>', normalizedPlayerName);
-          return true;
+      const playerChars = playerName.split('');
+      let foundAllChars = true;
+      let lastIndex = -1;
+      
+      for (const char of playerChars) {
+        const charIndex = text.indexOf(char, lastIndex + 1);
+        if (charIndex === -1) {
+          foundAllChars = false;
+          console.log('✗ 找不到字符:', char);
+          break;
         }
+        lastIndex = charIndex;
+        console.log('✓ 找到字符:', char, '位置:', charIndex);
       }
       
-      // 嘗試子字串匹配（對中文更寬鬆）
-      if (normalizedPlayerName.length >= 2) {
-        for (let i = 0; i <= asianNormalizedText.length - normalizedPlayerName.length; i++) {
-          const substring = asianNormalizedText.substring(i, i + normalizedPlayerName.length);
-          if (substring === normalizedPlayerName) {
-            console.log('亞洲語言子字串匹配成功:', substring, '<=>', normalizedPlayerName);
-            return true;
-          }
-        }
-      }
-    }
-    
-    // 方法2: 模糊匹配 - 允許一些字符差異
-    const fuzzyMatch = (str1: string, str2: string, threshold: number = 0.75): boolean => {
-      if (str2.length === 0) return false;
-      
-      // 計算編輯距離
-      const matrix = Array(str1.length + 1).fill(null).map(() => Array(str2.length + 1).fill(null));
-      
-      for (let i = 0; i <= str1.length; i++) matrix[i][0] = i;
-      for (let j = 0; j <= str2.length; j++) matrix[0][j] = j;
-      
-      for (let i = 1; i <= str1.length; i++) {
-        for (let j = 1; j <= str2.length; j++) {
-          if (str1[i - 1] === str2[j - 1]) {
-            matrix[i][j] = matrix[i - 1][j - 1];
-          } else {
-            matrix[i][j] = Math.min(
-              matrix[i - 1][j] + 1,     // 刪除
-              matrix[i][j - 1] + 1,     // 插入
-              matrix[i - 1][j - 1] + 1  // 替換
-            );
-          }
-        }
-      }
-      
-      const editDistance = matrix[str1.length][str2.length];
-      const similarity = 1 - editDistance / Math.max(str1.length, str2.length);
-      
-      return similarity >= threshold;
-    };
-    
-    // 對亞洲語言使用更高的相似度閾值
-    const fuzzyThreshold = isAsianLanguage ? 0.85 : 0.75;
-    const searchText = isAsianLanguage ? asianNormalizedText : normalizedText;
-    
-    // 在文字中尋找與玩家名稱相似的子字串
-    for (let i = 0; i <= searchText.length - normalizedPlayerName.length; i++) {
-      const substring = searchText.substring(i, i + normalizedPlayerName.length);
-      if (fuzzyMatch(substring, normalizedPlayerName, fuzzyThreshold)) {
-        console.log('方法2匹配成功: 模糊匹配', substring, '<=>', normalizedPlayerName);
+      if (foundAllChars) {
+        console.log('✓ 方法3成功: 逐字符順序匹配');
         return true;
       }
     }
     
-    // 方法3: 分詞匹配 - 將文字分割後逐個比對
-    const words = searchText.split(/[\s\-_.,;:|]+/).filter(word => word.length > 0);
-    for (const word of words) {
-      const wordFuzzyThreshold = isAsianLanguage ? 0.9 : 0.8;
-      if (word === normalizedPlayerName || fuzzyMatch(word, normalizedPlayerName, wordFuzzyThreshold)) {
-        console.log('方法3匹配成功: 分詞匹配', word, '<=>', normalizedPlayerName);
+    // 方法4: 分割文字後搜尋
+    const textSegments = text.split(/[\s\-_.,;:|()[\]{}「」『』【】〈〉《》〔〕（）［］｛｝、。，；：！？～…—–]+/);
+    for (const segment of textSegments) {
+      if (segment === playerName || segment.includes(playerName)) {
+        console.log('✓ 方法4成功: 分段匹配，匹配段落:', segment);
         return true;
       }
     }
     
-    console.log('所有匹配方法都失敗');
+    // 方法5: 容錯匹配（允許一些字符差異）
+    const similarity = calculateSimilarity(text, playerName);
+    console.log('文字相似度:', similarity);
+    if (similarity > 0.6) {
+      console.log('✓ 方法5成功: 相似度匹配');
+      return true;
+    }
+    
+    // 方法6: 子字串滑動窗口搜尋
+    const windowSize = playerName.length;
+    for (let i = 0; i <= text.length - windowSize; i++) {
+      const window = text.substring(i, i + windowSize);
+      const windowSimilarity = calculateSimilarity(window, playerName);
+      if (windowSimilarity > 0.8) {
+        console.log('✓ 方法6成功: 滑動窗口匹配，窗口:', window, '相似度:', windowSimilarity);
+        return true;
+      }
+    }
+    
+    console.log('✗ 所有匹配方法都失敗');
     return false;
+  };
+  
+  // 計算兩個字串的相似度
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    if (str1.length === 0 && str2.length === 0) return 1;
+    if (str1.length === 0 || str2.length === 0) return 0;
+    
+    // 使用 Levenshtein 距離計算相似度
+    const matrix = Array(str1.length + 1).fill(null).map(() => Array(str2.length + 1).fill(null));
+    
+    for (let i = 0; i <= str1.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= str2.length; j++) matrix[0][j] = j;
+    
+    for (let i = 1; i <= str1.length; i++) {
+      for (let j = 1; j <= str2.length; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j] + 1,     // 刪除
+            matrix[i][j - 1] + 1,     // 插入
+            matrix[i - 1][j - 1] + 1  // 替換
+          );
+        }
+      }
+    }
+    
+    const editDistance = matrix[str1.length][str2.length];
+    return 1 - editDistance / Math.max(str1.length, str2.length);
   };
 
   const processStep3 = async (file: File): Promise<{ nameMatch: boolean }> => {
