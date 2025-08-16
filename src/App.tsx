@@ -83,7 +83,7 @@ function App() {
       const { data: { text } } = await Tesseract.recognize(file, 'eng+chi_tra+chi_sim+jpn+kor', {
         logger: m => console.log(m), // 可選：顯示處理進度
         tessedit_pageseg_mode: '6', // 假設單一統一文字區塊
-        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz一二三四五六七八九十百千萬億兆京垓秭穰溝澗正載極恆河沙阿僧祇那由他不可思議無量大數北極熊貓指揮官玩家名稱擊殺數月總_-.,;:|()[]{}「」『』【】〈〉《》〔〕（）［］｛｝、。，；：！？～…—–''""‚„‹›«»‰‱°′″‴※§¶†‡•‰‱¤¢£¥€₹₽₩₪₫₱₡₨₦₵₴₸₼₾＄￠￡￥￦',
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz一二三四五六七八九十百千萬億兆京垓秭穰溝澗正載極恆河沙阿僧祇那由他不可思議無量大數北極熊貓指揮官玩家名稱擊殺數月總_-.,;:|()[]{}「」『』【】〈〉《》〔〕（）［］｛｝、。，；：！？～…—–\'\'""‚„‹›«»‰‱°′″‴※§¶†‡•‰‱¤¢£¥€₹₽₩₪₫₱₡₨₦₵₴₸₼₾＄￠￡￥￦',
         preserve_interword_spaces: '1'
       });
       
