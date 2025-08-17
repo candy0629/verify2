@@ -79,25 +79,42 @@ function App() {
 
   const processStep2 = async (file: File): Promise<{ killCount: number; playerFound: boolean }> => {
     try {
-      // 使用 Tesseract.js 進行 OCR 文字識別
-      const { data: { text } } = await Tesseract.recognize(file, 'eng+chi_tra+chi_sim+jpn+kor', {
-        logger: m => console.log(m), // 可選：顯示處理進度
-        tessedit_pageseg_mode: '6', // 假設單一統一文字區塊
-        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz一二三四五六七八九十百千萬億兆京垓秭穰溝澗正載極恆河沙阿僧祇那由他不可思議無量大數北極熊貓指揮官玩家名稱擊殺數月總_-.,;:|()[]{}「」『』【】〈〉《》〔〕（）［］｛｝、。，；：！？～…—–\\\'\\\"\"‚„‹›«»‰‱°′″‴※§¶†‡•‰‱¤¢£¥€₹₽₩₪₫₱₡₨₦₵₴₸₼₾＄￠￡￥￦',
-        preserve_interword_spaces: '1'
-      });
-      
-      // 額外嘗試僅使用中文模型進行識別
-      const { data: { text: chineseText } } = await Tesseract.recognize(file, 'chi_tra+chi_sim', {
-        logger: m => console.log('Chinese OCR:', m),
+      // 先嘗試英文識別（最穩定）
+      const { data: { text: englishText } } = await Tesseract.recognize(file, 'eng', {
+        logger: m => console.log('English OCR:', m),
         tessedit_pageseg_mode: '6',
         preserve_interword_spaces: '1'
       });
       
-      // 合併兩次識別結果
-      const combinedText = text + ' ' + chineseText;
+      // 嘗試中文繁體識別
+      let chineseText = '';
+      try {
+        const { data: { text: chiTraText } } = await Tesseract.recognize(file, 'chi_tra', {
+          logger: m => console.log('Chinese Traditional OCR:', m),
+          tessedit_pageseg_mode: '6',
+          preserve_interword_spaces: '1'
+        });
+        chineseText += chiTraText + ' ';
+      } catch (error) {
+        console.log('中文繁體識別失敗，跳過:', error);
+      }
       
-      console.log('OCR 識別結果:', text);
+      // 嘗試中文簡體識別
+      try {
+        const { data: { text: chiSimText } } = await Tesseract.recognize(file, 'chi_sim', {
+          logger: m => console.log('Chinese Simplified OCR:', m),
+          tessedit_pageseg_mode: '6',
+          preserve_interword_spaces: '1'
+        });
+        chineseText += chiSimText + ' ';
+      } catch (error) {
+        console.log('中文簡體識別失敗，跳過:', error);
+      }
+      
+      // 合併所有識別結果
+      const combinedText = englishText + ' ' + chineseText;
+      
+      console.log('英文 OCR 識別結果:', englishText);
       console.log('中文 OCR 識別結果:', chineseText);
       console.log('合併識別結果:', combinedText);
       
@@ -275,22 +292,30 @@ function App() {
 
   const processStep3 = async (file: File): Promise<{ nameMatch: boolean }> => {
     try {
-      // 使用 Tesseract.js 進行 OCR 文字識別
-      const { data: { text } } = await Tesseract.recognize(file, 'eng+chi_tra+chi_sim+jpn+kor', {
-        logger: m => console.log(m),
+      // 先嘗試英文識別
+      const { data: { text: englishText } } = await Tesseract.recognize(file, 'eng', {
+        logger: m => console.log('Roblox English OCR:', m),
         tessedit_pageseg_mode: '6',
         preserve_interword_spaces: '1'
       });
       
-      // 額外的中文識別
-      const { data: { text: chineseText } } = await Tesseract.recognize(file, 'chi_tra+chi_sim', {
-        logger: m => console.log('Roblox Chinese OCR:', m),
-        tessedit_pageseg_mode: '6'
-      });
+      // 嘗試中文識別
+      let chineseText = '';
+      try {
+        const { data: { text: chiText } } = await Tesseract.recognize(file, 'chi_tra', {
+          logger: m => console.log('Roblox Chinese OCR:', m),
+          tessedit_pageseg_mode: '6',
+          preserve_interword_spaces: '1'
+        });
+        chineseText = chiText;
+      } catch (error) {
+        console.log('Roblox 中文識別失敗，跳過:', error);
+      }
       
-      const combinedText = text + ' ' + chineseText;
-      console.log('Roblox 頁面 OCR 結果:', text);
+      const combinedText = englishText + ' ' + chineseText;
+      console.log('Roblox 頁面英文 OCR 結果:', englishText);
       console.log('Roblox 中文 OCR 結果:', chineseText);
+      console.log('Roblox 合併 OCR 結果:', combinedText);
       
       // 使用改進的匹配邏輯
       const nameMatch = findPlayerName(combinedText, data.playerName);
