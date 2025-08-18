@@ -740,7 +740,6 @@ function App() {
                       </div>
                     </div>
                   </div>
-                </div>
                 
                 <div className="flex justify-center space-x-4">
                   <button
