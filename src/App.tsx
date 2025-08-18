@@ -307,7 +307,7 @@ function App() {
       sessionStorage.setItem('expected_username', data.playerName);
       
       // 構建 Roblox OAuth URL
-      const clientId = 'your-roblox-client-id'; // 這需要在 Roblox Developer Console 中註冊應用程式
+      const clientId = '4090460921469591553'; // Roblox OAuth Client ID
       const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
       const scope = encodeURIComponent('openid profile');
       
@@ -339,6 +339,8 @@ function App() {
               robloxUsername: result.username
             }));
             sessionStorage.removeItem('roblox_auth_result');
+          } else {
+            setAuthError('授權被取消或失敗，請重試');
           }
           setIsAuthenticating(false);
         }
@@ -361,26 +363,73 @@ function App() {
     }
   };
 
-  // 模擬 Roblox 授權（用於演示）
-  const simulateRobloxAuth = () => {
-    setIsAuthenticating(true);
-    setAuthError(null);
-    
-    // 模擬授權延遲
-    setTimeout(() => {
-      // 模擬成功授權
-      const mockUserId = '123456789';
-      const mockUsername = data.playerName; // 假設授權成功且用戶名匹配
+  // 處理授權回調
+  const handleAuthCallback = async (code: string, state: string) => {
+    try {
+      // 驗證狀態參數
+      const savedState = sessionStorage.getItem('roblox_auth_state');
+      if (state !== savedState) {
+        throw new Error('狀態參數不匹配，可能存在安全風險');
+      }
       
-      setData(prev => ({
-        ...prev,
-        robloxUserId: mockUserId,
-        robloxUsername: mockUsername
+      // 交換授權碼獲取訪問令牌
+      const tokenResponse = await fetch('/api/roblox/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code,
+          redirect_uri: window.location.origin + '/auth/callback'
+        })
+      });
+      
+      if (!tokenResponse.ok) {
+        throw new Error('獲取訪問令牌失敗');
+      }
+      
+      const tokenData = await tokenResponse.json();
+      
+      // 使用訪問令牌獲取用戶信息
+      const userResponse = await fetch('/api/roblox/userinfo', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`
+        }
+      });
+      
+      if (!userResponse.ok) {
+        throw new Error('獲取用戶信息失敗');
+      }
+      
+      const userData = await userResponse.json();
+      
+      // 保存授權結果
+      sessionStorage.setItem('roblox_auth_result', JSON.stringify({
+        userId: userData.sub,
+        username: userData.preferred_username
       }));
       
-      setIsAuthenticating(false);
-    }, 2000);
+      // 關閉授權視窗
+      window.close();
+      
+    } catch (error) {
+      console.error('處理授權回調失敗:', error);
+      sessionStorage.setItem('roblox_auth_error', error.message);
+      window.close();
+    }
   };
+  
+  // 檢查是否為授權回調頁面
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    
+    if (code && state) {
+      handleAuthCallback(code, state);
+    }
+  }, []);
 
   const handleSubmit = async () => {
     if (!data.playerName || !data.gameScreenshot || !data.robloxUserId) {
@@ -695,7 +744,7 @@ function App() {
                       </p>
                       
                       <button
-                        onClick={simulateRobloxAuth}
+                        onClick={handleRobloxAuth}
                         disabled={isAuthenticating}
                         className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all font-medium"
                       >
