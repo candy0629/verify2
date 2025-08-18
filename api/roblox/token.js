@@ -41,7 +41,7 @@ export async function handler(event, context) {
     }
 
     // Roblox OAuth 配置
-    const clientId = '4090460921469591553';
+    const clientId = '2119131214852751564';
     const clientSecret = process.env.ROBLOX_CLIENT_SECRET; // 需要在 Netlify 環境變數中設置
     
     if (!clientSecret) {
